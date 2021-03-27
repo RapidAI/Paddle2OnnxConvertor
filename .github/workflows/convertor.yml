@@ -162,4 +162,4 @@ jobs:
           files: |
             ${{ steps.models-path.outputs.path }}
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
