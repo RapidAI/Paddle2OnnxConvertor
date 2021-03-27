@@ -4,4 +4,5 @@ opencv-python
 imgaug
 pyclipper
 lmdb
+gast==0.3.3
 onnx

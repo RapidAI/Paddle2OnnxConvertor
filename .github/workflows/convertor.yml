@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     tags:
-      - '*.*.*'
+      - '*'
 
 jobs:
   build-and-release:
@@ -34,11 +34,19 @@ jobs:
           sudo python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then sudo pip install -r requirements.txt -i https://mirror.baidu.com/pypi/simple; fi
 
+      # pip缓存
+      - uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
       # 检出Paddle2ONNX
       - name: checkout Paddle2ONNX
         uses: actions/checkout@v2
         with:
-          repository: znsoftm/paddle2onnx-wild
+          repository: RapidOCR/paddle2onnx-wild
           path: Paddle2ONNX
           ref: 1268f098e5d77d89e8227dc431cb72435fb4d0a9
 
@@ -82,16 +90,13 @@ jobs:
           python generate_multi_language_configs.py -l mr
           python generate_multi_language_configs.py -l ne
 
-      # 新建文件夹PaddleOCR/inference
-      - name: Create PaddleOCR/inference
+      # 下载 paddle models
+      - name: download paddle models
         run: |
-          cd PaddleOCR
-          mkdir inference
-
-      # 下载 paddle inference
-      - name: download paddle inference
-        run: |
+          mkdir PaddleOCR/inference
+          cp paddle-model-list.txt PaddleOCR/inference
           cp download-models.sh PaddleOCR/inference
+          cd PaddleOCR/inference
           chmod a+x download-models.sh &&./download-models.sh
 
       # 复制转换脚本
@@ -99,7 +104,7 @@ jobs:
         run: |
           cp export_custom.py PaddleOCR/tools
           cp -f program.py PaddleOCR/tools
-          cp gen-models.sh PaddleOCR
+          cp convert-models.sh PaddleOCR
 
       # 开始转换
       - name: start convert
@@ -113,13 +118,12 @@ jobs:
           cd PaddleOCR/inference
           find . -name '*.onnx' -type f -exec 7z a {}.7z {} \;
 
-      # 获取文件路径
+      # 列出7z文件清单
       - name: Get onnx models path
         id: models-path
         run: |
           path=$(find PaddleOCR/inference -name '*.7z' -type f)
           echo "$path"
-          echo "::set-output name=path::"$path""
 
       # 获取git log 从 previousTag 到 lastTag
       - name: Get git log
@@ -132,12 +136,29 @@ jobs:
           echo "$log"
           echo "::set-output name=log::"$log""
 
+      # 获取指定时区的时间
+      # https://github.com/marketplace/actions/get-time-action
+      - name: Get Time
+        id: time
+        uses: JantHsueh/get-time-action@master
+        with:
+          timeZone: 8
+
       # 显示信息
       - name: Show info
         if: always()
         run: |
-          echo '${{ steps.models-path.outputs.path }}'
           echo '${{ steps.git-log.outputs.log }}'
+
+      # 向钉钉发送消息
+      # https://github.com/marketplace/actions/web-request-action
+      - name: dingtalk
+        uses: satak/webrequest-action@master
+        with:
+          url: ${{ secrets.DINGTALK_WEBHOOK }}
+          method: POST
+          payload: '{"msgtype": "text", "text": {"content": "版本更新: ${{ github.repository }}-版本号: ${{ github.ref }} \n 编译时间： ${{ steps.time.outputs.time }} \n 距上个正式版的更新记录: \n${{ steps.git-log.outputs.log }}"}}'
+          headers: '{"Content-Type": "application/json"}'
 
       # 创建Changelog文件 triggered by git tag push
       - name: Generate Changelog
@@ -160,6 +181,6 @@ jobs:
           body_path: Release.txt
           draft: true
           files: |
-            ${{ steps.models-path.outputs.path }}
+            PaddleOCR/inference/*.7z
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
