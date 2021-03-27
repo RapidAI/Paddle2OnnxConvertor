@@ -1,0 +1,165 @@
+name: Models Convertor
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - '*.*.*'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    #strategy:
+    #  matrix:
+    #    python-version: [3.8.5]
+
+    steps:
+      # 检出代码
+      - uses: actions/checkout@v2
+
+      # 获取所有的git log和tag
+      - name: Unshallow
+        run: git fetch --prune --unshallow
+
+      # 配置Python环境 ubuntu-latest自带了python3.8.5，故不需要此项
+      #- name: Set up Python ${{ matrix.python-version }}
+      #  uses: actions/setup-python@v2
+      #  with:
+      #    python-version: ${{ matrix.python-version }}
+
+      # 安装依赖包
+      - name: Install dependencies
+        run: |
+          sudo python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then sudo pip install -r requirements.txt -i https://mirror.baidu.com/pypi/simple; fi
+
+      # 检出Paddle2ONNX
+      - name: checkout Paddle2ONNX
+        uses: actions/checkout@v2
+        with:
+          repository: znsoftm/paddle2onnx-wild
+          path: Paddle2ONNX
+          ref: 1268f098e5d77d89e8227dc431cb72435fb4d0a9
+
+      # 安装Paddle2ONNX
+      - name: install Paddle2ONNX
+        run: |
+          cd Paddle2ONNX
+          sudo python setup.py install
+
+      # 检出PaddleOCR
+      - name: checkout PaddleOCR
+        uses: actions/checkout@v2
+        with:
+          repository: PaddlePaddle/PaddleOCR
+          path: PaddleOCR
+          ref: release/2.0
+
+      # 生成多国语言配置
+      - name: generate multi language configs
+        run: |
+          cd PaddleOCR/configs/rec/multi_language
+          python generate_multi_language_configs.py -l it
+          python generate_multi_language_configs.py -l es
+          python generate_multi_language_configs.py -l pt
+          python generate_multi_language_configs.py -l ru
+          python generate_multi_language_configs.py -l ar
+          python generate_multi_language_configs.py -l ta
+          python generate_multi_language_configs.py -l ug
+          python generate_multi_language_configs.py -l fa
+          python generate_multi_language_configs.py -l ur
+          python generate_multi_language_configs.py -l rs_latin
+          python generate_multi_language_configs.py -l oc
+          python generate_multi_language_configs.py -l rs_cyrillic
+          python generate_multi_language_configs.py -l bg
+          python generate_multi_language_configs.py -l uk
+          python generate_multi_language_configs.py -l be
+          python generate_multi_language_configs.py -l te
+          python generate_multi_language_configs.py -l kn
+          python generate_multi_language_configs.py -l ch_tra
+          python generate_multi_language_configs.py -l hi
+          python generate_multi_language_configs.py -l mr
+          python generate_multi_language_configs.py -l ne
+
+      # 新建文件夹PaddleOCR/inference
+      - name: Create PaddleOCR/inference
+        run: |
+          cd PaddleOCR
+          mkdir inference
+
+      # 下载 paddle inference
+      - name: download paddle inference
+        run: |
+          cp download-models.sh PaddleOCR/inference
+          chmod a+x download-models.sh &&./download-models.sh
+
+      # 复制转换脚本
+      - name: copy convertor script to tools
+        run: |
+          cp export_custom.py PaddleOCR/tools
+          cp -f program.py PaddleOCR/tools
+          cp gen-models.sh PaddleOCR
+
+      # 开始转换
+      - name: start convert
+        run: |
+          cd PaddleOCR
+          chmod a+x convert-models.sh &&./convert-models.sh
+
+      # 使用7z压缩模型
+      - name: 7zip
+        run: |
+          cd PaddleOCR/inference
+          find . -name '*.onnx' -type f -exec 7z a {}.7z {} \;
+
+      # 获取文件路径
+      - name: Get onnx models path
+        id: models-path
+        run: |
+          path=$(find PaddleOCR/inference -name '*.7z' -type f)
+          echo "$path"
+          echo "::set-output name=path::"$path""
+
+      # 获取git log 从 previousTag 到 lastTag
+      - name: Get git log
+        id: git-log
+        run: |
+          previousTag=$(git describe --abbrev=0 --tags `git rev-list --tags --skip=1 --max-count=1`)
+          lastTag=$(git describe --abbrev=0 --tags)
+          echo "previousTag:$previousTag ~ lastTag:$lastTag"
+          log=$(git log $previousTag..$lastTag --pretty=format:'- %cd %an: %s\n' --date=format:'%Y-%m-%d %H:%M:%S')
+          echo "$log"
+          echo "::set-output name=log::"$log""
+
+      # 显示信息
+      - name: Show info
+        if: always()
+        run: |
+          echo '${{ steps.models-path.outputs.path }}'
+          echo '${{ steps.git-log.outputs.log }}'
+
+      # 创建Changelog文件 triggered by git tag push
+      - name: Generate Changelog
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          echo -e '${{ steps.git-log.outputs.log }}' > Release.txt
+
+      # Cat Changelog triggered by git tag push
+      - name: Cat Changelog
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          cat Release.txt
+
+      # 创建Release triggered by git tag push
+      # https://github.com/marketplace/actions/gh-release
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          body_path: Release.txt
+          draft: true
+          files: |
+            ${{ steps.models-path.outputs.path }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_ACCESS_TOKEN }}
