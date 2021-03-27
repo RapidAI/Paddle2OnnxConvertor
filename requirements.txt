@@ -1,0 +1,7 @@
+paddlepaddle==2.0.1
+tqdm
+opencv-python
+imgaug
+pyclipper
+lmdb
+onnx
