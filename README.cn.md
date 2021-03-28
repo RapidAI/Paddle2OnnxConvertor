@@ -3,14 +3,15 @@
 [![Issue](https://img.shields.io/github/issues/RapidOCR/PaddleModelsConvertor.svg)](https://github.com/RapidOCR/PaddleModelsConvertor/issues)
 [![Star](https://img.shields.io/github/stars/RapidOCR/PaddleModelsConvertor.svg)](https://github.com/RapidOCR/PaddleModelsConvertor)
 
-## [English](./README.md) | [Chinese](README.cn.md)
+## [英文](./README.md) | [中文](./README.cn.md)
 
-### Introduction
+### 介绍
 
-Paddle train models conversion tool
+paddle训练模型自动转换工具。
 
-downloading paddle training models, converting them to onnx, and finally releasing them as Release.
+通过Github Action完成自动下载paddle训练模型，转换为onnx，最后发布为Release的流程。
 
-### Download
+### 下载
 
 [releases](https://github.com/RapidOCR/PaddleModelsConvertor/releases)
+
