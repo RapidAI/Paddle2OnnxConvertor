@@ -9,6 +9,12 @@
 
 [releases](https://github.com/RapidOCR/PaddleModelsConvertor/releases)
 
+20210328: release/2.0
+
+20210702: release/2.0
+
+
+
 ### 介绍
 
 paddle训练模型自动转换工具。
