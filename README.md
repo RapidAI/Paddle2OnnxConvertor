@@ -3,7 +3,7 @@
 [![Issue](https://img.shields.io/github/issues/RapidOCR/PaddleModelsConvertor.svg)](https://github.com/RapidOCR/PaddleModelsConvertor/issues)
 [![Star](https://img.shields.io/github/stars/RapidOCR/PaddleModelsConvertor.svg)](https://github.com/RapidOCR/PaddleModelsConvertor)
 
-## [英文](./README.en.md) | [中文](./README.md)
+## 本仓库已不再维护，请参考相关仓库：[Paddle2OnnxConvertor](https://github.com/RapidAI/Paddle2OnnxConvertor)
 
 ### ONNX模型下载
 
@@ -12,8 +12,6 @@
 20210328: release/2.0
 
 20210702: release/2.0
-
-
 
 ### 介绍
 
